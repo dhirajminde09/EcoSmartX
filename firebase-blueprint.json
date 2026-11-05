@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "Facility": {
+      "title": "Facility",
+      "description": "Facility energy profile and parameters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "type": { "type": "string", "maxLength": 50 },
+        "floorAreaSqM": { "type": "number" },
+        "occupancy": { "type": "number" },
+        "country": { "type": "string", "maxLength": 50 },
+        "currency": { "type": "string", "maxLength": 10 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerId"]
+    },
+    "EnergyEvent": {
+      "title": "EnergyEvent",
+      "description": "Scheduled demand response, peak shaving, or maintenance event synced with Google Calendar",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "facilityId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 500 },
+        "eventType": { "type": "string", "maxLength": 50 },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "targetReductionKw": { "type": "number" },
+        "calendarEventId": { "type": "string", "maxLength": 256 },
+        "status": { "type": "string", "maxLength": 30 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "facilityId", "ownerId", "startTime", "endTime"]
+    }
+  },
+  "firestore": {
+    "/facilities/{facilityId}": {
+      "schema": "Facility",
+      "description": "Registered facilities for energy monitoring"
+    },
+    "/energy_events/{eventId}": {
+      "schema": "EnergyEvent",
+      "description": "Energy scheduling and demand response events linked to Google Calendar"
+    }
+  }
+}

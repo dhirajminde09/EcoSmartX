@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.provider == 'anonymous');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Facilities validation
+    function isValidFacility(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.ownerId == request.auth.uid &&
+             (!('type' in data) || (data.type is string && data.type.size() <= 50)) &&
+             (!('floorAreaSqM' in data) || data.floorAreaSqM is number) &&
+             (!('occupancy' in data) || data.occupancy is number) &&
+             (!('country' in data) || (data.country is string && data.country.size() <= 50)) &&
+             (!('currency' in data) || (data.currency is string && data.currency.size() <= 10));
+    }
+
+    // Energy Events validation (Demand Response / Maintenance / Audits)
+    function isValidEnergyEvent(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 150 &&
+             data.facilityId is string && data.facilityId.size() <= 128 &&
+             data.ownerId == request.auth.uid &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             (!('eventType' in data) || (data.eventType is string && data.eventType.size() <= 50)) &&
+             (!('startTime' in data) || (data.startTime is string && data.startTime.size() <= 50)) &&
+             (!('endTime' in data) || (data.endTime is string && data.endTime.size() <= 50)) &&
+             (!('targetReductionKw' in data) || data.targetReductionKw is number) &&
+             (!('calendarEventId' in data) || (data.calendarEventId is string && data.calendarEventId.size() <= 256)) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 30));
+    }
+
+    // /facilities/{facilityId}
+    match /facilities/{facilityId} {
+      allow get: if isVerified() && isValidId(facilityId) && existing().ownerId == request.auth.uid;
+      allow list: if isVerified() && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerified() &&
+                       isValidId(facilityId) &&
+                       isValidFacility(incoming()) &&
+                       incoming().id == facilityId &&
+                       incoming().ownerId == request.auth.uid;
+
+      allow update: if isVerified() &&
+                       isValidId(facilityId) &&
+                       existing().ownerId == request.auth.uid &&
+                       isValidFacility(incoming()) &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'name', 'type', 'floorAreaSqM', 'occupancy', 'country', 'currency', 'updatedAt'
+                       ]);
+
+      allow delete: if isVerified() && isValidId(facilityId) && existing().ownerId == request.auth.uid;
+    }
+
+    // /energy_events/{eventId}
+    match /energy_events/{eventId} {
+      allow get: if isVerified() && isValidId(eventId) && existing().ownerId == request.auth.uid;
+      allow list: if isVerified() && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerified() &&
+                       isValidId(eventId) &&
+                       isValidEnergyEvent(incoming()) &&
+                       incoming().id == eventId &&
+                       incoming().ownerId == request.auth.uid;
+
+      allow update: if isVerified() &&
+                       isValidId(eventId) &&
+                       existing().ownerId == request.auth.uid &&
+                       isValidEnergyEvent(incoming()) &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'description', 'eventType', 'startTime', 'endTime',
+                         'targetReductionKw', 'calendarEventId', 'status', 'updatedAt'
+                       ]);
+
+      allow delete: if isVerified() && isValidId(eventId) && existing().ownerId == request.auth.uid;
+    }
+  }
+}
